@@ -14,11 +14,17 @@ public class GraphVisualizer {
         while (true) {
             System.out.println("\n=== Algorytm Dijkstry ===");
             System.out.println("Wierzchołki są numerowane od 0.");
+            System.out.println("0 - Zakończ program");
             System.out.println("1 - Przykładowe dane");
             System.out.println("2 - Losowy graf");
             System.out.println("3 - Wprowadź dane ręcznie");
-            System.out.print("Wybierz opcję (1-3): ");
-            int option = readInt(scanner, 1, 3);
+            System.out.print("Wybierz opcję (0-3): ");
+            int option = readInt(scanner, 0, 3);
+
+            if (option == 0) {
+                System.out.println("Do zobaczenia!");
+                break;
+            }
 
             int[][] edges;
             int size;
@@ -48,17 +54,16 @@ public class GraphVisualizer {
 
             List<List<GraphUtils.Edge>> graph = GraphUtils.buildGraph(size, edges);
             int[] predecessors = new int[size];
-            int[] distances = GraphUtils.dijkstra(graph, start, predecessors);
 
             printDijkstraStepsTable(graph, start, size);
             drawGraph(size, edges, start, predecessors);
 
             System.out.println("\nCo chcesz zrobić dalej?");
-            System.out.println("1 - Zaccznij od nowa");
-            System.out.println("2 - Zakończ program");
+            System.out.println("0 - Zakończ program");
+            System.out.println("1 - Zacznij od nowa");
             System.out.print("Wybór: ");
-            int again = readInt(scanner, 1, 2);
-            if (again == 2) {
+            int again = readInt(scanner, 0, 1);
+            if (again == 0) {
                 System.out.println("Do zobaczenia!");
                 break;
             }
