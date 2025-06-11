@@ -53,9 +53,7 @@ public class GraphVisualizer {
             int start = readInt(scanner, 0, size - 1);
 
             List<List<GraphUtils.Edge>> graph = GraphUtils.buildGraph(size, edges);
-            int[] predecessors = new int[size];
-
-            printDijkstraStepsTable(graph, start, size);
+            int[] predecessors = runDijkstra(graph, start, size);
             drawGraph(size, edges, start, predecessors);
 
             System.out.println("\nCo chcesz zrobić dalej?");
@@ -89,7 +87,6 @@ public class GraphVisualizer {
         System.out.println("\n--- Wprowadzanie krawędzi ---");
         System.out.println("Wierzchołki numerujemy od 0 do " + (size - 1) + ".");
         System.out.println("Wprowadź " + count + " krawędzi w formacie: a b w");
-        System.out.println("Gdzie: a i b to różne wierzchołki, w to waga (>0)\n");
 
         while (edges.size() < count) {
             System.out.print("[" + (edges.size() + 1) + "/" + count + "] Wprowadź: ");
@@ -103,22 +100,19 @@ public class GraphVisualizer {
                 int a = Integer.parseInt(parts[0]);
                 int b = Integer.parseInt(parts[1]);
                 int w = Integer.parseInt(parts[2]);
-
-                if (a < 0 || a >= size || b < 0 || b >= size || a == b || w <= 0) {
-                    System.out.println("❌ Dane nieprawidłowe. Wierzchołki 0–" + (size - 1) + ", brak pętli, waga > 0.");
+                if (a < 0 || b < 0 || a >= size || b >= size || a == b || w <= 0) {
+                    System.out.println("❌ Błędne dane. Sprawdź zakresy.");
                     continue;
                 }
-
                 String key = Math.min(a, b) + "-" + Math.max(a, b);
                 if (seen.contains(key)) {
-                    System.out.println("❌ Taka krawędź już została wprowadzona.");
+                    System.out.println("❌ Taka krawędź już istnieje.");
                     continue;
                 }
-
                 edges.add(new int[]{a, b, w});
                 seen.add(key);
             } catch (NumberFormatException e) {
-                System.out.println("❌ Błąd: wpisz wyłącznie liczby całkowite.");
+                System.out.println("❌ Wprowadź tylko liczby.");
             }
         }
 
@@ -146,6 +140,63 @@ public class GraphVisualizer {
         return edges.toArray(new int[0][]);
     }
 
+    private static int[] runDijkstra(List<List<GraphUtils.Edge>> graph, int start, int size) {
+        int[] dist = new int[size];
+        int[] prev = new int[size];
+        Arrays.fill(dist, Integer.MAX_VALUE);
+        Arrays.fill(prev, -1);
+        dist[start] = 0;
+
+        PriorityQueue<GraphUtils.Edge> pq = new PriorityQueue<>(Comparator.comparingInt(e -> e.weight));
+        pq.add(new GraphUtils.Edge(start, 0));
+
+        List<int[]> distHistory = new ArrayList<>();
+        List<int[]> prevHistory = new ArrayList<>();
+        distHistory.add(dist.clone());
+        prevHistory.add(prev.clone());
+
+        while (!pq.isEmpty()) {
+            GraphUtils.Edge current = pq.poll();
+            int u = current.to;
+
+            for (GraphUtils.Edge e : graph.get(u)) {
+                if (dist[u] + e.weight < dist[e.to]) {
+                    dist[e.to] = dist[u] + e.weight;
+                    prev[e.to] = u;
+                    pq.add(new GraphUtils.Edge(e.to, dist[e.to]));
+                }
+            }
+
+            distHistory.add(dist.clone());
+            prevHistory.add(prev.clone());
+        }
+
+        printDijkstraStepsTable(distHistory, prevHistory, size, start);
+        return prev;
+    }
+
+    private static void printDijkstraStepsTable(List<int[]> distHistory, List<int[]> prevHistory, int size, int start) {
+        System.out.println("\n📋 Tabela kroków algorytmu Dijkstry (start: " + start + "):\n");
+        System.out.print("Krok  |");
+        for (int i = 0; i < size; i++) {
+            System.out.printf(" %4d", i);
+        }
+        System.out.println();
+        System.out.println("------+----------------------------------------------------------");
+
+        for (int step = 0; step < distHistory.size(); step++) {
+            System.out.printf(" %3d  |", step);
+            for (int i = 0; i < size; i++) {
+                int d = distHistory.get(step)[i];
+                int p = prevHistory.get(step)[i];
+                String val = (d == Integer.MAX_VALUE ? "∞" : String.valueOf(d));
+                String pred = (p == -1 ? "-" : String.valueOf(p));
+                System.out.printf(" %2s/%s", val, pred);
+            }
+            System.out.println();
+        }
+    }
+
     private static void drawGraph(int size, int[][] edges, int start, int[] predecessors) {
         Graph gsGraph = new SingleGraph("Dijkstra");
         gsGraph.setStrict(false);
@@ -168,14 +219,26 @@ public class GraphVisualizer {
             edge.setAttribute("ui.label", String.valueOf(e[2]));
         }
 
+        for (int i = 0; i < predecessors.length; i++) {
+            int prev = predecessors[i];
+            if (prev != -1) {
+                String e1 = prev + "-" + i;
+                String e2 = i + "-" + prev;
+                if (gsGraph.getEdge(e1) != null)
+                    gsGraph.getEdge(e1).setAttribute("ui.class", "marked");
+                else if (gsGraph.getEdge(e2) != null)
+                    gsGraph.getEdge(e2).setAttribute("ui.class", "marked");
+            }
+        }
+
         String styleSheet =
                 "node {" +
-                        " fill-color: #bde0fe; size: 40px;" +
+                        " fill-color: #bde0fe; size: 20px;" +
                         " text-size: 24px; text-color: black; text-style: bold;" +
                         " stroke-mode: plain; stroke-color: black;" +
                         "}" +
                         "node.start {" +
-                        " fill-color: orange; size: 50px;" +
+                        " fill-color: orange; size: 30px;" +
                         " text-color: black; text-size: 26px;" +
                         " stroke-color: red; stroke-width: 3px;" +
                         "}" +
@@ -190,73 +253,6 @@ public class GraphVisualizer {
         gsGraph.setAttribute("ui.stylesheet", styleSheet);
         gsGraph.setAttribute("ui.quality");
         gsGraph.setAttribute("ui.antialias");
-
-        for (int i = 0; i < predecessors.length; i++) {
-            int prev = predecessors[i];
-            if (prev != -1) {
-                String e1 = prev + "-" + i;
-                String e2 = i + "-" + prev;
-                if (gsGraph.getEdge(e1) != null)
-                    gsGraph.getEdge(e1).setAttribute("ui.class", "marked");
-                else if (gsGraph.getEdge(e2) != null)
-                    gsGraph.getEdge(e2).setAttribute("ui.class", "marked");
-            }
-        }
-
         gsGraph.display();
-    }
-
-    private static void printDijkstraStepsTable(List<List<GraphUtils.Edge>> graph, int start, int size) {
-        int[] dist = new int[size];
-        int[] prev = new int[size];
-        Arrays.fill(dist, Integer.MAX_VALUE);
-        Arrays.fill(prev, -1);
-        dist[start] = 0;
-
-        PriorityQueue<GraphUtils.Edge> pq = new PriorityQueue<>(Comparator.comparingInt(e -> e.weight));
-        pq.add(new GraphUtils.Edge(start, 0));
-
-        List<int[]> distHistory = new ArrayList<>();
-        List<int[]> prevHistory = new ArrayList<>();
-
-        distHistory.add(dist.clone());
-        prevHistory.add(prev.clone());
-
-        while (!pq.isEmpty()) {
-            GraphUtils.Edge current = pq.poll();
-            int u = current.to;
-
-            for (GraphUtils.Edge e : graph.get(u)) {
-                if (dist[u] + e.weight < dist[e.to]) {
-                    dist[e.to] = dist[u] + e.weight;
-                    prev[e.to] = u;
-                    pq.add(new GraphUtils.Edge(e.to, dist[e.to]));
-                }
-            }
-
-            distHistory.add(dist.clone());
-            prevHistory.add(prev.clone());
-        }
-
-        System.out.println("\n📋 Tabela kroków algorytmu Dijkstry (start: " + start + "):\n");
-
-        System.out.print("Krok  |");
-        for (int i = 0; i < size; i++) {
-            System.out.printf(" %4d", i);
-        }
-        System.out.println();
-        System.out.println("------+----------------------------------------------------------");
-
-        for (int step = 0; step < distHistory.size(); step++) {
-            System.out.printf(" %3d  |", step);
-            for (int i = 0; i < size; i++) {
-                int d = distHistory.get(step)[i];
-                int p = prevHistory.get(step)[i];
-                String val = (d == Integer.MAX_VALUE ? "∞" : String.valueOf(d));
-                String pred = (p == -1 ? "-" : String.valueOf(p));
-                System.out.printf(" %2s/%s", val, pred);
-            }
-            System.out.println();
-        }
     }
 }
